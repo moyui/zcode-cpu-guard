@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.zcode.cpu-guard</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/PATH/TO/zcode-cpu-guard/limit-zcode-cpu.sh</string>
+        <string>--watch</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>CPU_LIMIT</key>
+        <string>60</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>/PATH/TO/zcode-cpu-guard/zcode-watch-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/PATH/TO/zcode-cpu-guard/zcode-watch-stderr.log</string>
+</dict>
+</plist>

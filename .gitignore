@@ -1,0 +1,8 @@
+# 日志文件（运行时生成，不进仓库）
+*.log
+
+# macOS 元数据
+.DS_Store
+
+# 克隆到本地后由用户自定义的 LaunchAgent 实例
+*.plist.installed
