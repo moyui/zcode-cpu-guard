@@ -6,3 +6,4 @@
 
 # 克隆到本地后由用户自定义的 LaunchAgent 实例
 *.plist.installed
+CONTRIBUTING.md
