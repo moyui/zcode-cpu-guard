@@ -8,39 +8,32 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](#)
 
-Limit CPU usage of all **ZCode** (macOS Electron app) processes to reduce power and heat — Intel Macs only. 中文说明见 [README.zh-CN.md](./README.zh-CN.md)。
+Cap CPU usage for all **ZCode** (macOS Electron app) processes to cut power and heat — **Intel Macs only**. See [README.zh-CN.md](./README.zh-CN.md) for Chinese.
 
-限制 **ZCode**（macOS Electron 应用）所有进程的 CPU 使用率，从源头降低功耗与发热。
+> ⚠️ **Platform: Intel MacBooks only (especially older models)**
+> This tool targets the **thermal/power weakness of Intel Macs** — under heavy load the board VRM overheats and the system throttles to 0.7–1.1 GHz, causing severe stutter. **Apple Silicon (M1/M2/M3/M4) Macs do NOT have this problem**: their unified memory and thermal management prevent system-wide throttling from a single app, so **this tool is useless on Apple Silicon and not recommended**.
+> Process enumeration depends on `libproc.dylib`, so it **only works on macOS**, not Linux/Windows.
 
-> ⚠️ **适用机型：仅 Intel CPU 的 MacBook（尤其是老款）**
-> 本工具专治 **Intel Mac 的散热/供电短板**——高负载下主板 VRM 过热触发系统强制降频
-> （0.7~1.1GHz），导致卡顿。这种情况在 **Apple Silicon（M1/M2/M3/M4）Mac 上不存在**：
-> 它们采用统一内存架构与不同的功耗/温度管理，不会因单应用高负载而整体降频，因此
-> **本工具对 Apple Silicon Mac 没有用处，也不建议运行**。
-> 此外进程枚举依赖 `libproc.dylib`，故**仅支持 macOS**，无法在 Linux / Windows 上使用。
+## Why
 
-## 为什么需要它
+The older **Intel MacBook** (tested: 2018 15" Intel MacBook Pro) sees its VRM power module exceed 92°C under heavy ZCode load, forcing a throttle to 0.7–1.1 GHz. This tool uses `cpulimit` to cap each ZCode process to a percentage of a single core, directly lowering power and temperature to avoid throttling.
 
-老款 **Intel MacBook**（实测机型：2018 款 15" Intel MacBook Pro）在 ZCode 高负载下，主板 VRM 供电模块
-温度会超过 92℃，被系统强制降频到 0.7~1.1GHz，导致严重卡顿。本工具用 `cpulimit` 把每个
-ZCode 进程限制在"单核"的指定百分比以内，直接压低功耗与温度，避免触发降频。
+> If your Mac is Apple Silicon, **close this page — you don't need it**.
 
-> 如果你的 Mac 是 Apple Silicon（M 系列芯片），**请直接关闭本页，无需安装**——它对你没有帮助。
+## Principles & Limitations
 
-## 原理与限制
+- Uses [`cpulimit`](https://github.com/marlonx80/cpulimit) to periodically `SIGSTOP`/`SIGCONT` target processes — a coarse throttle.
+- Percentage is **per core**: `40%` = 40% of one core; ZCode has multiple child processes, total is roughly `N × 40%`. Too aggressive may cause frame drops — start from `40%` and tune.
+- **macOS (Intel) only**: relies on `libproc.dylib` / `proc_listpids`; no value on Apple Silicon or Linux/Windows.
+- Homebrew `cpulimit` 0.2 (marlonx80 fork) removed `-b`; scripts use `nohup` background daemon instead (same effect, `cpulimit` exits when target exits).
 
-- 用 [`cpulimit`](https://github.com/marlonx80/cpulimit) 周期性 `SIGSTOP`/`SIGCONT`（暂停-恢复）目标进程，属"粗暴"限流。
-- `cpulimit` 的百分比按**单核**计：`40%` = 1 个核的 40%；ZCode 有多个子进程，叠加后总占用约为 `N × 40%` 单核。限太狠可能让界面掉帧，建议从 `40%` 起按体验微调。
-- **仅支持 macOS（Intel 机型）**：进程枚举依赖 `libproc.dylib` / `proc_listpids`，且价值仅存在于会整体降频的老款 Intel Mac；Apple Silicon 与 Linux / Windows 均不适用。
-- Homebrew 当前的 cpulimit 0.2（marlonx80 维护版）已移除 `-b` 参数，脚本改用 `nohup` 后台守护（效果相同，目标进程退出后 cpulimit 自动退出）。
+## Requirements
 
-## 依赖
+- **Intel Mac** (no benefit on Apple Silicon)
+- `cpulimit`: `brew install cpulimit`
+- `python3` (bundled on macOS, for libproc enumeration)
 
-- **Intel CPU 的 Mac**（Apple Silicon 不需要、也无收益）
-- `cpulimit`：`brew install cpulimit`
-- `python3`（macOS 自带，用于 libproc 进程枚举）
-
-## 安装
+## Installation
 
 ```bash
 git clone https://github.com/moyui/zcode-cpu-guard.git
@@ -48,64 +41,63 @@ cd zcode-cpu-guard
 chmod +x limit-zcode-cpu.sh monitor-zcode-cpu.sh verify-zcode-guard.sh
 ```
 
-## 用法
+## Usage
 
-### 一次性限流
+### One-shot throttling
 
 ```bash
-./limit-zcode-cpu.sh                # 默认限制 40%
-CPU_LIMIT=60 ./limit-zcode-cpu.sh   # 临时调成 60%
-pkill cpulimit                      # 解除所有限流，恢复原状
+./limit-zcode-cpu.sh                # default 40%
+CPU_LIMIT=60 ./limit-zcode-cpu.sh   # temporarily 60%
+pkill cpulimit                      # remove all throttling
 ```
 
-### 常驻 watch 模式（推荐）
+### Persistent watch mode (recommended)
 
-每 5 秒扫描一次，自动补限新启动的 ZCode 进程（含瞬态进程），限流器意外退出也会自动补上。
+Scans every 5 seconds, auto-throttles newly spawned ZCode processes (including transient ones) and re-applies if the limiter exits unexpectedly.
 
 ```bash
 CPU_LIMIT=60 ./limit-zcode-cpu.sh --watch
-pkill -f "limit-zcode-cpu.sh --watch"   # 停止 watch（现有限流继续生效）
+pkill -f "limit-zcode-cpu.sh --watch"   # stop watch (existing throttles remain)
 ```
 
-事件写入脚本所在目录的 `zcode-watch.log`。
+Events are written to `zcode-watch.log` in the script directory.
 
-### 监控与自检（可选）
+### Monitoring & self-check (optional)
 
 ```bash
-bash monitor-zcode-cpu.sh 1800     # 监控 30 分钟 CPU 占用与限流覆盖 -> zcode-cpu-monitor.log
-bash verify-zcode-guard.sh 1800    # 健康检查：覆盖率/重复/残留/冻结/watcher -> zcode-health.log
+bash monitor-zcode-cpu.sh 1800     # monitor CPU & coverage for 30 min -> zcode-cpu-monitor.log
+bash verify-zcode-guard.sh 1800    # health checks: coverage/dup/orphan/freeze/watcher -> zcode-health.log
 ```
 
-### 登录自启（LaunchAgent）
+### LaunchAgent (auto-start on login)
 
-提供了 `com.zcode.cpu-guard.plist` 模板。把其中所有 `/PATH/TO/zcode-cpu-guard/` 替换为本机
-仓库绝对路径，再安装：
+Template `com.zcode.cpu-guard.plist` is provided. Replace all `/PATH/TO/zcode-cpu-guard/` with the absolute repo path, then install:
 
 ```bash
-# 先编辑 com.zcode.cpu-guard.plist，替换 /PATH/TO/... 为真实路径
+# Edit com.zcode.cpu-guard.plist, replace /PATH/TO/... with real path
 cp com.zcode.cpu-guard.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.zcode.cpu-guard.plist
 ```
 
-## 环境变量
+## Environment Variables
 
-| 变量 | 默认值 | 说明 |
+| Variable | Default | Notes |
 |------|--------|------|
-| `CPU_LIMIT` | `40` | 每个 ZCode 进程限制为单核 CPU 的百分比（0~100 整数） |
-| `WATCH_INTERVAL` | `5` | watch 模式扫描间隔（秒） |
-| `ZCODE_APP_PATH` | `/Applications/ZCode.app` | ZCode 应用路径（用于进程匹配） |
-| `WATCH_LOG` | `<脚本目录>/zcode-watch.log` | watch 模式事件日志路径 |
-| `ZCODE_MONITOR_LOG` | `<脚本目录>/zcode-cpu-monitor.log` | monitor 日志路径 |
-| `ZCODE_HEALTH_LOG` | `<脚本目录>/zcode-health.log` | verify 日志路径 |
+| `CPU_LIMIT` | `40` | Per-process cap as % of one core (0–100 integer) |
+| `WATCH_INTERVAL` | `5` | Watch mode scan interval (seconds) |
+| `ZCODE_APP_PATH` | `/Applications/ZCode.app` | ZCode app path for process matching |
+| `WATCH_LOG` | `<script dir>/zcode-watch.log` | Watch mode event log path |
+| `ZCODE_MONITOR_LOG` | `<script dir>/zcode-cpu-monitor.log` | Monitor log path |
+| `ZCODE_HEALTH_LOG` | `<script dir>/zcode-health.log` | Verify log path |
 
-## 文件
+## Files
 
-| 文件 | 作用 |
+| File | Purpose |
 |------|------|
-| `limit-zcode-cpu.sh` | 核心：限流 ZCode 进程（once / watch 模式） |
-| `monitor-zcode-cpu.sh` | 后台监控各进程 CPU 占用与限流覆盖 |
-| `verify-zcode-guard.sh` | 后台健康检查：覆盖率/重复/残留/冻结/watcher |
-| `com.zcode.cpu-guard.plist` | LaunchAgent 模板（需替换路径后使用） |
+| `limit-zcode-cpu.sh` | Core: throttle ZCode processes (once / watch mode) |
+| `monitor-zcode-cpu.sh` | Monitor per-process CPU & coverage |
+| `verify-zcode-guard.sh` | Health checks: coverage/dup/orphan/freeze/watcher |
+| `com.zcode.cpu-guard.plist` | LaunchAgent template (replace paths before use) |
 
 ## License
 
