@@ -1,5 +1,5 @@
 <p align="right">
-  <a href="./README.zh-CN.md">中文</a> | <strong>English</strong>
+  <strong>中文</strong> | <a href="./README.md">English</a>
 </p>
 
 # zcode-cpu-guard
@@ -7,8 +7,6 @@
 [![Platform: macOS (Intel)](https://img.shields.io/badge/platform-macOS%20(Intel)-lightgrey.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](#)
-
-Limit CPU usage of all **ZCode** (macOS Electron app) processes to reduce power and heat — Intel Macs only. 中文说明见 [README.zh-CN.md](./README.zh-CN.md)。
 
 限制 **ZCode**（macOS Electron 应用）所有进程的 CPU 使用率，从源头降低功耗与发热。
 
@@ -107,6 +105,6 @@ launchctl load ~/Library/LaunchAgents/com.zcode.cpu-guard.plist
 | `verify-zcode-guard.sh` | 后台健康检查：覆盖率/重复/残留/冻结/watcher |
 | `com.zcode.cpu-guard.plist` | LaunchAgent 模板（需替换路径后使用） |
 
-## License
+## 许可证
 
-MIT © moyui — see [LICENSE](./LICENSE).
+MIT © moyui — 详见 [LICENSE](./LICENSE)。
